@@ -1,0 +1,250 @@
+---
+title: "Modeling and prediction for movies"
+output:
+  pdf_document: default
+  html_document:
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(plyr)
+library(GGally)
+```
+
+### Load data
+
+```{r load-data}
+load("movies.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+Movie data has been collected randomly based on all data available on two motion picture databases prior to 2016.
+
+* * *
+
+## Part 2: Research question
+What is the definition of a 'popular' movie? We can use both the audience score as well as critics' score to measure a movie's popularity. We can also consider the level of interest the public has on a movie, by looking into the number of votes a movie received ( both favorable and unfavorable). For this exercise, We will consider 'audience_score' as the primpary measure for a movie's popularity. We should ask the following questions in determining which variables have a significant relationship with a movie's popularity. 
+
+1)Does audience score have a high correlation with the followingt numerical variables?
+  1.Critics' Score
+  2.Runtime
+  3.IMDB Number of Votes
+  4.Release Month
+  5.Release Year
+  
+
+2)Which of the following categorical variables contribute significantly to the audience score?
+  1.Genre
+  2.Best Picture Win?
+  3.Best Director Win?
+  4 Best Actor Win?
+  5.Best Actress Win?
+
+* * *
+
+## Part 3: Exploratory data analysis
+'
+Let's first look at the relationship between Audience Score and Critics' Score.
+
+```{r}
+ggplot(data = movies, aes(x = audience_score, y = critics_score )) +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE)
+
+criticsindex <-lm(critics_score ~ audience_score, data = movies)
+summary(criticsindex)
+
+hist(criticsindex$residuals)
+qqnorm(criticsindex$residuals)
+qqline(criticsindex$residuals)
+```
+There is a fair amount of linearity between the variables. The distribution of residuals is slightly left-skewed, but because of the sample size, we should not be too concerned. Let's look at the variability of Critics' Score, to see if it is in fact constant.
+
+```{r}
+ggplot(data = criticsindex, aes(x = .fitted, y=.resid)) +
+  geom_point() + geom_hline(yintercept = 0, linetype = "dashed")+
+  xlab("Fitted")
+  ylab("Residuals")
+```
+The variability of Critics' Score against Audience Score seems constant enough (there is slight linearity). Therefore, we can use this in our linear model.
+
+Next, I would like to see if there is any correlation between Audience Score and the following variables:Runtime, Release Year, Release Month and Number of Votes. Pairwise tests for each set of variables will give us an an opportunity to gauge if there is any correlation between each pair among the above.
+
+
+```{r fig.width = 16, fig.height= 10, binwidth=1}
+movies_sub <- movies[c(4,7,8,14,18)]
+ggp = ggpairs(movies_sub)
+print(ggp, progress = FALSE)
+```
+
+It seems that the Release Year and Release Month do not influece the data in any significant way. However, it seems that Runtime and imdb_num_votes derserve greater scrutiny. Therefore, let's look closely at both.
+
+First, a linear model for the association of IMDB Number of Votes with Audience Score:
+```{r}
+
+voteindex <-lm(imdb_num_votes ~ audience_score, data = movies)
+summary(voteindex)
+
+ggplot(data = movies, aes(x = imdb_num_votes, y = audience_score)) +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE)
+
+hist(voteindex$residuals)
+qqnorm(voteindex$residuals)
+qqline(voteindex$residuals)
+```
+We can tell that there is a significant correlation between Audience Score and IMDB Number of Votes due to the low P Value. However, we can also see some significant right skew in the residuals plot. Let us look at the scatter of residuals for consistency.
+
+```{r}
+ggplot(data = voteindex, aes(x = .fitted, y=.resid)) +
+  geom_point() + geom_hline(yintercept = 0, linetype = "dashed")+
+  xlab("Fitted")
+  ylab("Residuals")
+```
+
+We can see that the variability of the residuals is not constant. Owing to this, as well as the significant right skew in the residuals plot, we should not use this variable in our linear model
+
+We can also model of Runtime against Audience Score to see if there are any pitfalls in using this variable.
+```{r}
+Runtimeindex <-lm(runtime ~ audience_score, data = movies)
+summary(Runtimeindex)
+
+ggplot(data = movies, aes(x = runtime, y = audience_score)) +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE)
+
+hist(Runtimeindex$residuals)
+qqnorm(Runtimeindex$residuals)
+qqline(Runtimeindex$residuals)
+```
+It seems that there is some correlation between the two, with higher runtimes associated with better audience scores. The low P values suggest that this is significant as well. The data seem normally distributed. What about the constant variability?
+
+```{r}
+ggplot(data = Runtimeindex, aes(x = .fitted, y=.resid)) +
+  geom_point() + geom_hline(yintercept = 0, linetype = "dashed")+
+  xlab("Fitted")
+  ylab("Residuals")
+```
+ The variability of residuals seems constant enought to use in our linear model.
+ 
+ Next, let's look at the following categorical variables for a relationship with audience score.
+  1.Best Picture Win
+  2.Best Picture Nom
+  3.Best Actor Win
+  4.Best Actress Win
+
+
+```{r}
+ggplot(data = movies, aes(x = best_pic_win, y = audience_score)) +
+  geom_jitter() 
+
+ggplot(data = movies, aes(x = best_pic_nom, y = audience_score)) +
+  geom_jitter() 
+
+ggplot(data = movies, aes(x = best_actor_win, y = audience_score)) +
+  geom_jitter() 
+
+ggplot(data = movies, aes(x = best_actress_win, y = audience_score)) +
+  geom_jitter() 
+```
+It loos like the strongest relationship with audience score comes from best_pic_nom and best_pic_win. However, I think we should keep all four variables in conducting our summary statistics.
+
+
+Next, I would like to check if the different movie genres have a bearing on audience score:
+```{r fig.width = 20, fig.height= 5}
+
+ggplot(data = movies, aes(x = genre, y = audience_score)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+```{r fig.width = 20, fig.height= 5}
+ggplot(data = movies, aes(x = genre, y = audience_score)) +
+  geom_jitter() +
+  geom_smooth(method = "lm")
+```
+It looks like some of the categories (such as Documentaries) are favored more by audiences. Therefore this variable will remain when conducting summary statistics.
+
+
+* * *
+
+## Part 4: Modeling
+Let's run summary statistics on the variables we chose during our exploratory analysis.
+
+```{r}
+eval_score = lm(audience_score ~ critics_score  + genre + best_pic_nom + best_pic_win + best_actor_win + best_dir_win + best_actress_win + runtime, data = movies)
+summary(eval_score)
+
+
+```
+From all the variables, we see that best_actor_win, best_pic_win and best_actress_win do not contribute significantly in predicting audience score. Therefore, using forward selection, we will see if the remaining variables contribute to maximizing our adjusted R^2 value.
+
+```{r}
+eval_score_1 = lm(audience_score ~ critics_score, data = movies)
+summary(eval_score_1)$adj.r.squared
+
+eval_score_2 = lm(audience_score ~ critics_score  + best_pic_nom, data = movies)
+summary(eval_score_2)$adj.r.squared
+
+eval_score_3 = lm(audience_score ~ critics_score + best_pic_nom + runtime, data = movies)
+summary(eval_score_3)$adj.r.squared
+
+eval_score_4 = lm(audience_score ~ critics_score + best_pic_nom + runtime + genre, data = movies)
+summary(eval_score_4)$adj.r.squared
+
+```
+We can see that all remaining variables contribute positively to maximizing adjusted R^2, and should be factored into future predictions.
+
+* * *
+
+## Part 5: Prediction
+
+From here, we can run predictions for two moves in two different genres, assuming both movies were given the same scores by critics (90), had the same runtimes (90mins), and were nominated for Best Picture. We will look at one move from the 'Horror' Genre, and one from the 'Drama' genre
+
+```{r}
+audience_score_critics_score_90_best_pic_yes_runtime_90mins_horror = 28.651233 + 90*.44098 + 10.031682 + 90*.061815 -8.452251
+audience_score_critics_score_90_best_pic_yes_runtime_90mins_horror
+
+audience_score_critics_score_90_best_pic_yes_runtime_90mins_drama = 28.651233 + 90*.44098 + 10.031682 + 90*.061815 + 1.859378
+audience_score_critics_score_90_best_pic_yes_runtime_90mins_drama
+
+```
+We can see a clear preference for movies in the 'Drama' category, as opposed to 'Horror'. We can also calculate a 95% confidence interval for the two movies:
+
+```{r}
+summary(eval_score_4)
+```
+
+```{r}
+qt(.025,df=636)
+```
+```{r}
+#Drama
+1.53573 + 1.963701*1.95587
+1.53573 - 1.963701*1.95587
+
+#Horror
+-8.41533 + 1.963701*3.39202
+-8.41533 - 1.963701*3.39202
+
+```
+For Drama, the 95% confidence interval is (-2.305,5.376)
+For Horror, the 95% confidence interval is (-15.076, -1.754)
+* * *
+
+## Part 6: Conclusion
+
+It looks like audiences have a preference for certain movie genres. Also, audience opinion varies to a greater degree for some movie genres (such as for Horror over Drama). They also seem to have a preference for movies of a slightly longer duration. Naturally, they rate movies nominated for certain award higher, possibly due to the hype generated by critics or because of genuine appreciation for critically acclaimed movies.
+
