@@ -1,4 +1,4 @@
-##Correlation and Regression Analysis for Movies
+## Correlation and Regression Analysis for Movies
 
 This analysis is part of an online course on regression and correlation which I completed. The data has been collected randomly based on all data available on two motion picture databases prior to 2016. The objectives of the analysis are given below:
 
